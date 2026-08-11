@@ -55,6 +55,12 @@
         #reportContainer {
             width: 100%;
             max-width: 1400px;
+            height: 90vh;
+        }
+        #reportContainer iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
         }
     </style>
 </head>
@@ -68,15 +74,21 @@
         <div class="error" id="errorMsg">❌ Invalid code. Please check and try again.</div>
     </div>
 
-    <!-- Сюда будет загружен отчёт -->
+    <!-- Контейнер для iframe с отчётом -->
     <div id="reportContainer" style="display: none;"></div>
 
     <script>
-        // --- Твой список разрешённых кодов (ты можешь хранить их здесь или в Firebase) ---
+        // --- Твой список разрешённых кодов ---
         const WHITELIST = [
-            "11111111111111111111111111111111" // твой тестовый код
+            "11111111111111111111111111111111"
             // добавляй сюда новые коды
         ];
+
+        // Сохраняем сессию, чтобы не вводить код каждый раз
+        if (sessionStorage.getItem('accessGranted')) {
+            document.getElementById('loginContainer').style.display = 'none';
+            loadReport();
+        }
 
         async function checkCode() {
             const input = document.getElementById('accessCode').value.trim();
@@ -88,30 +100,36 @@
                 return;
             }
 
-            // Проверяем код
             if (!WHITELIST.includes(input)) {
                 errorEl.style.display = 'block';
                 errorEl.textContent = '❌ Invalid code. Access denied.';
                 return;
             }
 
-            // Код верный — загружаем отчёт
             errorEl.style.display = 'none';
+            sessionStorage.setItem('accessGranted', 'true');
+            document.getElementById('loginContainer').style.display = 'none';
+            loadReport();
+        }
 
+        async function loadReport() {
             try {
-                // Загружаем содержимое скрытого файла
+                // Загружаем HTML-отчёт из скрытой папки _reports
                 const response = await fetch('_reports/price_report_english.html');
                 if (!response.ok) throw new Error('Report not found');
-                const html = await response.text();
+                const htmlText = await response.text();
 
-                // Скрываем форму входа и показываем отчёт
-                document.getElementById('loginContainer').style.display = 'none';
-                document.getElementById('reportContainer').style.display = 'block';
-                document.getElementById('reportContainer').innerHTML = html;
+                // Создаём iframe с содержимым через blob URL
+                const blob = new Blob([htmlText], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
 
+                const container = document.getElementById('reportContainer');
+                container.style.display = 'block';
+                container.innerHTML = `<iframe src="${url}"></iframe>`;
             } catch (err) {
-                errorEl.style.display = 'block';
-                errorEl.textContent = '⚠️ Could not load report. Please try again later.';
+                document.getElementById('loginContainer').style.display = 'block';
+                document.getElementById('errorMsg').style.display = 'block';
+                document.getElementById('errorMsg').textContent = '⚠️ Could not load report. Please try again later.';
                 console.error(err);
             }
         }
