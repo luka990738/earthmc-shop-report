@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EarthMC Price Report</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: #0a0a0a;
+            color: #eee;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background: #1a1a1a;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            border: 1px solid #333;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        h2 {
+            font-weight: 300;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        .sub {
+            color: #aaa;
+            font-size: 14px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid #2a2a2a;
+            padding-bottom: 16px;
+        }
+        input {
+            width: 100%;
+            padding: 14px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 8px;
+            font-size: 16px;
+            margin: 10px 0 16px;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+        input:focus {
+            outline: none;
+            border-color: #f0a500;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #f0a500;
+            border: none;
+            color: #000;
+            font-weight: bold;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #d49400;
+        }
+        .error {
+            color: #ff6b6b;
+            margin-top: 12px;
+            font-size: 14px;
+            display: none;
+        }
+        .hint {
+            font-size: 13px;
+            color: #666;
+            margin-top: 18px;
+        }
+        .status {
+            font-size: 12px;
+            color: #555;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>🔐 Price Report</h2>
+    <div class="sub">EarthMC · Daily market data</div>
+    <p style="color:#aaa; font-size:14px;">Enter your 32-character access code</p>
+    <input type="text" id="accessCode" placeholder="e.g. a1b2c3d4..." maxlength="32" autocomplete="off" />
+    <button onclick="checkCode()">Access Report</button>
+    <div class="error" id="errorMsg">❌ Invalid code. Access denied.</div>
+    <div class="hint">Code is case-sensitive · 32 characters</div>
+    <div class="status" id="statusMsg">● Ready</div>
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<script>
+    // ============================================================
+    // YOUR FIREBASE CONFIG (copy-pasted from your project)
+    // ============================================================
+    const firebaseConfig = {
+        apiKey: "AIzaSyA-8_jA-hDdarTqSG9sQeBPEpVO4oPHqTc",
+        authDomain: "earthmc-price-reports.firebaseapp.com",
+        databaseURL: "https://earthmc-price-reports-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "earthmc-price-reports",
+        storageBucket: "earthmc-price-reports.firebasestorage.app",
+        messagingSenderId: "574082081390",
+        appId: "1:574082081390:web:07efa39b65734a05c27c7f"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    // DOM elements
+    const input = document.getElementById('accessCode');
+    const errorEl = document.getElementById('errorMsg');
+    const statusEl = document.getElementById('statusMsg');
+
+    // ----- Check code against Firebase -----
+    async function checkCode() {
+        const code = input.value.trim();
+
+        // Basic validation
+        if (code.length === 0) {
+            showError('Please enter a code.');
+            return;
+        }
+        if (code.length !== 32) {
+            showError('Code must be exactly 32 characters.');
+            return;
+        }
+
+        // Show loading status
+        statusEl.textContent = '⏳ Checking...';
+        statusEl.style.color = '#ffa500';
+        hideError();
+
+        try {
+            // Get all codes from Firebase
+            const snapshot = await database.ref('codes').once('value');
+            const data = snapshot.val();
+
+            if (!data) {
+                showError('No codes found in database. Contact support.');
+                statusEl.textContent = '⚠️ Database empty';
+                statusEl.style.color = '#ff6b6b';
+                return;
+            }
+
+            // Check if the entered code exists in the list
+            let isValid = false;
+            for (let key in data) {
+                if (data[key] === code) {
+                    isValid = true;
+                    break;
+                }
+            }
+
+            if (isValid) {
+                statusEl.textContent = '✅ Access granted! Redirecting...';
+                statusEl.style.color = '#51cf66';
+                // Redirect to the report page
+                window.location.href = 'price_report_english.html';
+            } else {
+                showError('❌ Invalid code. Access denied.');
+                statusEl.textContent = '❌ Denied';
+                statusEl.style.color = '#ff6b6b';
+                input.value = '';
+                input.focus();
+            }
+        } catch (error) {
+            console.error('Firebase error:', error);
+            showError('⚠️ Connection error. Please try again.');
+            statusEl.textContent = '⚠️ Offline';
+            statusEl.style.color = '#ff6b6b';
+        }
+    }
+
+    // ----- Helper functions -----
+    function showError(msg) {
+        errorEl.textContent = msg;
+        errorEl.style.display = 'block';
+    }
+
+    function hideError() {
+        errorEl.style.display = 'none';
+    }
+
+    // ----- Event listeners -----
+    // Press Enter to submit
+    input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            checkCode();
+        }
+    });
+
+    // Auto-uppercase? No, codes are case-sensitive, keep as is.
+
+    // Update status on input change
+    input.addEventListener('input', function() {
+        hideError();
+        if (this.value.length > 0) {
+            statusEl.textContent = '● ' + this.value.length + '/32 characters';
+            statusEl.style.color = '#666';
+        } else {
+            statusEl.textContent = '● Ready';
+            statusEl.style.color = '#555';
+        }
+    });
+
+    // Log that the page is ready
+    console.log('🔐 EarthMC Price Report — Access page loaded');
+</script>
+</body>
+</html>
